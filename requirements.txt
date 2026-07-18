@@ -1,3 +1,5 @@
 Django
 nltk
 scikit-learn
+gunicorn
+whitenoise
