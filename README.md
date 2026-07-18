@@ -20,20 +20,6 @@ API or paid LLM required.
 - scikit-learn (TfidfVectorizer, cosine_similarity)
 - Vanilla JS (Fetch API) for the chat interface
 
-## Project Structure
-```
-CodeAlpha_FAQChatbot/
-├── manage.py
-├── requirements.txt
-├── core/                        # Django project settings
-└── chatbot_app/
-    ├── faqs.json                # FAQ dataset (question/answer pairs)
-    ├── matcher.py                # preprocessing + TF-IDF matching engine
-    ├── views.py                  # chat page view + /ask/ AJAX endpoint
-    ├── urls.py
-    ├── templates/chatbot_app/index.html
-    └── static/chatbot_app/style.css
-```
 
 ## Setup & Run
 
