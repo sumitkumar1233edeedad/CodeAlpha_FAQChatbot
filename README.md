@@ -76,6 +76,12 @@ needed. If a chunk wins a match, its answer is tagged with
 fields in admin if a file fails to process (e.g. unsupported file type, or a
 scanned PDF with no extractable text).
 
+Note: the search index lives in each process's memory. Under a single-process
+dev server this "no restart needed" reindex is immediate. Under a
+multi-worker production server (e.g. `gunicorn` with more than one worker),
+only the worker that handled the upload sees the update immediately — the
+other workers keep serving the old index until they restart.
+
 ## Possible Improvements
 - Swap TF-IDF for `sentence-transformers` embeddings for genuine semantic matching
   (would fix the "money back" vs "refund" style mismatches)
