@@ -111,3 +111,25 @@ class ChunkTextTests(SimpleTestCase):
             result,
             ["This paragraph has irregular whitespace and line breaks in the middle of it."],
         )
+
+    def test_trailing_short_sentence_merges_into_previous_group(self):
+        first_sentence = (
+            "This first sentence is carefully padded with extra filler words "
+            "so it lands under the two hundred character limit today for sure."
+        )
+        second_sentence = (
+            "This second standalone sentence is deliberately padded even further "
+            "with additional filler words so that its own length alone comes in "
+            "very close to the two hundred character chunk size limit used "
+            "throughout this whole system right now."
+        )
+        trailing_sentence = "Yes it is."
+        text = f"{first_sentence} {second_sentence} {trailing_sentence}"
+        self.assertGreater(len(text), MAX_CHUNK_LENGTH)  # sanity check: fixture must trigger the split path
+
+        result = chunk_text(text)
+
+        self.assertEqual(len(result), 2)
+        self.assertIn(first_sentence, result[0])
+        self.assertIn(second_sentence, result[1])
+        self.assertIn(trailing_sentence, result[1])

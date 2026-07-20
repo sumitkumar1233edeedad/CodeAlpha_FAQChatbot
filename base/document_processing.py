@@ -63,7 +63,8 @@ def _split_into_sentence_groups(text, max_length, min_length):
             groups.append(sentence)
 
     if len(groups) > 1 and len(groups[-1]) < min_length:
-        groups[-2] = f"{groups[-2]} {groups.pop()}"
+        trailing = groups.pop()
+        groups[-1] = f"{groups[-1]} {trailing}"
 
     return groups
 
