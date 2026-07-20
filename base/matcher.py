@@ -3,6 +3,7 @@ import os
 import string
 
 import nltk
+from django.db.utils import OperationalError, ProgrammingError
 from nltk.corpus import stopwords
 from nltk.tokenize import word_tokenize
 from sklearn.feature_extraction.text import TfidfVectorizer
@@ -19,10 +20,6 @@ for pkg in ("punkt", "punkt_tab", "stopwords"):
 
 STOP_WORDS = set(stopwords.words("english"))
 MATCH_THRESHOLD = 0.28  # below this similarity score, we admit we don't know the answer
-# Note: TF-IDF is keyword-based. A paraphrase using very different vocabulary from
-# every training question (e.g. "money back" vs "refund") can still mismatch even
-# with 1000 phrasings in the dataset. For stronger semantic matching, swap in
-# sentence-transformers embeddings — see README "Possible Improvements".
 
 FAQ_PATH = os.path.join(os.path.dirname(__file__), "faqs.json")
 
@@ -40,16 +37,65 @@ def preprocess(text: str) -> str:
     return " ".join(tokens)
 
 
-# Build the TF-IDF matrix once, at import time, so every request reuses it
-# ngram_range=(1,2) lets it match on short phrases ("money back") not just single words,
-# which matters a lot now that there are hundreds of paraphrased questions per intent.
-_processed_questions = [preprocess(q) for q in QUESTIONS]
-_vectorizer = TfidfVectorizer(ngram_range=(1, 2), sublinear_tf=True)
-_faq_vectors = _vectorizer.fit_transform(_processed_questions)
+# Rebuilt by rebuild_index() whenever a Document is added/removed, so the
+# matcher stays current without needing a server restart.
+_vectorizer = None
+_corpus_vectors = None
+_corpus_answers = []
+_corpus_matched_questions = []
+_corpus_sources = []
+
+
+def _document_chunk_entries():
+    """Returns (text, answer, matched_question, source) tuples for every DocumentChunk row."""
+    from .models import DocumentChunk
+
+    try:
+        chunks = list(DocumentChunk.objects.select_related("document").all())
+    except (OperationalError, ProgrammingError):
+        # The table may not exist yet -- e.g. during the initial `migrate`,
+        # or when this module is imported for test collection before the
+        # test database has been built.
+        return []
+
+    entries = []
+    for chunk in chunks:
+        source = chunk.document.title or os.path.basename(chunk.document.file.name)
+        entries.append((chunk.text, chunk.text, None, source))
+    return entries
+
+
+def rebuild_index():
+    """Rebuilds the TF-IDF index from FAQ_DATA plus every DocumentChunk in the database."""
+    global _vectorizer, _corpus_vectors, _corpus_answers, _corpus_matched_questions, _corpus_sources
+
+    texts, answers, matched_questions, sources = [], [], [], []
+
+    for question, answer in zip(QUESTIONS, ANSWERS):
+        texts.append(question)
+        answers.append(answer)
+        matched_questions.append(question)
+        sources.append(None)
+
+    for text, answer, matched_question, source in _document_chunk_entries():
+        texts.append(text)
+        answers.append(answer)
+        matched_questions.append(matched_question)
+        sources.append(source)
+
+    processed = [preprocess(t) for t in texts]
+    vectorizer = TfidfVectorizer(ngram_range=(1, 2), sublinear_tf=True)
+    vectors = vectorizer.fit_transform(processed)
+
+    _vectorizer = vectorizer
+    _corpus_vectors = vectors
+    _corpus_answers = answers
+    _corpus_matched_questions = matched_questions
+    _corpus_sources = sources
 
 
 def get_best_answer(user_question: str) -> dict:
-    """Return the best-matching FAQ answer plus metadata (score, matched question)."""
+    """Return the best-matching answer (FAQ or document chunk) plus metadata."""
     processed = preprocess(user_question)
     if not processed.strip():
         return {
@@ -59,7 +105,7 @@ def get_best_answer(user_question: str) -> dict:
         }
 
     user_vector = _vectorizer.transform([processed])
-    similarities = cosine_similarity(user_vector, _faq_vectors).flatten()
+    similarities = cosine_similarity(user_vector, _corpus_vectors).flatten()
     best_idx = similarities.argmax()
     best_score = float(similarities[best_idx])
 
@@ -71,8 +117,16 @@ def get_best_answer(user_question: str) -> dict:
             "score": best_score,
         }
 
+    answer = _corpus_answers[best_idx]
+    source = _corpus_sources[best_idx]
+    if source:
+        answer = f"{answer} (Source: {source})"
+
     return {
-        "answer": ANSWERS[best_idx],
-        "matched_question": QUESTIONS[best_idx],
+        "answer": answer,
+        "matched_question": _corpus_matched_questions[best_idx],
         "score": best_score,
     }
+
+
+rebuild_index()
