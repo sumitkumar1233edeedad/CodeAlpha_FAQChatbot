@@ -3,3 +3,5 @@ nltk
 scikit-learn
 gunicorn
 whitenoise
+pypdf
+python-docx
