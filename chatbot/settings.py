@@ -134,3 +134,7 @@ STATICFILES_DIRS = [
 ]
 STATIC_ROOT = BASE_DIR / 'staticfiles'          # collectstatic output
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+
+# Media files (user-uploaded documents)
+MEDIA_URL = 'media/'
+MEDIA_ROOT = BASE_DIR / 'media'
