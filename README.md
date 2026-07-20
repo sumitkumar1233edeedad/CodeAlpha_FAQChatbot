@@ -62,6 +62,20 @@ Just edit `chatbot_app/faqs.json` with your own question/answer pairs — the
 matching engine rebuilds itself automatically from that file on server start.
 More pairs (30-50+) and more natural phrasing of questions = better matching.
 
+## Uploading Documents
+
+Besides `faqs.json`, you can add knowledge by uploading PDF, DOCX, or TXT
+files through the Django admin at `/admin/` (requires a superuser — create
+one with `python manage.py createsuperuser`). Go to **Base > Documents > Add
+document**, give it a title, and upload the file.
+
+On save, the file's text is extracted and split into paragraph-sized chunks,
+which are immediately added to the chatbot's search index — no restart
+needed. If a chunk wins a match, its answer is tagged with
+`(Source: <document title>)`. Check the document's `status`/`error_message`
+fields in admin if a file fails to process (e.g. unsupported file type, or a
+scanned PDF with no extractable text).
+
 ## Possible Improvements
 - Swap TF-IDF for `sentence-transformers` embeddings for genuine semantic matching
   (would fix the "money back" vs "refund" style mismatches)
