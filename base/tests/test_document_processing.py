@@ -4,7 +4,7 @@ from unittest.mock import MagicMock, patch
 from django.core.files.uploadedfile import SimpleUploadedFile
 from django.test import SimpleTestCase
 
-from base.document_processing import chunk_text, extract_text
+from base.document_processing import MAX_CHUNK_LENGTH, chunk_text, extract_text
 from base.models import Document
 
 
@@ -70,3 +70,44 @@ class ChunkTextTests(SimpleTestCase):
     def test_no_paragraph_breaks_returns_single_chunk(self):
         text = "Just one long paragraph with no breaks in it at all here."
         self.assertEqual(chunk_text(text), [text])
+
+    def test_long_paragraph_splits_into_sentence_chunks(self):
+        text = (
+            "The company reported strong results across all business units this year. "
+            "Revenue grew steadily due to increased customer demand in urban markets. "
+            "Operating costs were kept under control through efficiency programs. "
+            "Management expects continued growth in the coming fiscal year."
+        )
+        self.assertGreater(len(text), MAX_CHUNK_LENGTH)  # sanity check: fixture must trigger the split path
+
+        result = chunk_text(text)
+
+        self.assertGreater(len(result), 1)
+        for chunk in result:
+            self.assertLessEqual(len(chunk), MAX_CHUNK_LENGTH)
+        joined = " ".join(result)
+        self.assertIn("Revenue grew steadily", joined)
+        self.assertIn("Management expects continued growth", joined)
+
+    def test_single_long_sentence_kept_whole(self):
+        text = (
+            "This is one single very long run on sentence without any period "
+            "in the middle that just keeps going and going through many many "
+            "words until it finally reaches its very end without ever giving "
+            "the sentence tokenizer a chance to split it into smaller pieces"
+        )
+        self.assertGreater(len(text), MAX_CHUNK_LENGTH)  # sanity check: fixture must trigger the split path
+
+        result = chunk_text(text)
+
+        self.assertEqual(result, [text])
+
+    def test_normalizes_internal_whitespace(self):
+        text = "This   paragraph has\nirregular   whitespace\nand line breaks  in the middle of it."
+
+        result = chunk_text(text)
+
+        self.assertEqual(
+            result,
+            ["This paragraph has irregular whitespace and line breaks in the middle of it."],
+        )
