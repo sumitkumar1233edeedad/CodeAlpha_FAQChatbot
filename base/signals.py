@@ -3,7 +3,6 @@ import logging
 from django.db.models.signals import post_delete, post_save
 from django.dispatch import receiver
 
-from . import matcher
 from .document_processing import chunk_text, extract_text
 from .models import Document, DocumentChunk
 
@@ -12,6 +11,8 @@ logger = logging.getLogger(__name__)
 
 @receiver(post_save, sender=Document)
 def process_document(sender, instance, created, **kwargs):
+    from . import matcher
+
     DocumentChunk.objects.filter(document=instance).delete()
 
     try:
@@ -40,4 +41,6 @@ def process_document(sender, instance, created, **kwargs):
 
 @receiver(post_delete, sender=Document)
 def reindex_after_delete(sender, instance, **kwargs):
+    from . import matcher
+
     matcher.rebuild_index()
