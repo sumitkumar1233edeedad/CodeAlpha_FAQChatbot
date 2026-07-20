@@ -3,7 +3,7 @@ import os
 from docx import Document as DocxDocument
 from pypdf import PdfReader
 
-MIN_CHUNK_LENGTH = 20
+MIN_CHUNK_LENGTH = 30
 
 
 def extract_text(document):

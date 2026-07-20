@@ -45,10 +45,16 @@ class ExtractTextTests(SimpleTestCase):
 
 class ChunkTextTests(SimpleTestCase):
     def test_splits_on_paragraph_breaks(self):
-        text = "First paragraph here.\n\nSecond paragraph here too."
+        text = (
+            "First paragraph here with enough words to pass.\n\n"
+            "Second paragraph here too, also long enough now."
+        )
         self.assertEqual(
             chunk_text(text),
-            ["First paragraph here.", "Second paragraph here too."],
+            [
+                "First paragraph here with enough words to pass.",
+                "Second paragraph here too, also long enough now.",
+            ],
         )
 
     def test_drops_short_chunks(self):
